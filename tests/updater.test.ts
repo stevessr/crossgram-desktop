@@ -205,7 +205,7 @@ async function applyToTree(options: {
     build: options.build,
     featureRoot: join(process.cwd(), "features/updater"),
     privateKey: options.privateKey,
-    publicKey: options.publicKey,
+    publicKey: options.publicKey ?? null,
   });
   return root;
 }
