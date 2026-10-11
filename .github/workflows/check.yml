@@ -12,6 +12,23 @@ permissions:
   contents: read
 
 jobs:
+  unit:
+    name: TypeScript patcher checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: corepack enable
+      - name: Restore Yarn cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.yarn/berry/cache
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: yarn install --immutable
+      - run: yarn check
+
   patch:
     name: Patch ${{ matrix.build.target }} / ${{ matrix.build.brand }}
     runs-on: ubuntu-latest
