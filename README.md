@@ -238,10 +238,11 @@ Open **Actions → Manual Linux desktop build → Run workflow**. Select an upst
 (default: `tdesktop-x64` / 64Gram) and `runtime` for the universal package. This
 reuses the native desktop build and smoke-test pipeline, uploads packages/symbols
 as Actions artifacts, and never runs the release publication job. Manual builds
-always rebuild the requested target. If `CROSSGRAM_UPDATE_KEY` is absent, this
-build-only Linux mode generates an ephemeral signing key on the runner; those
-artifacts are not suitable for production automatic updates. No private key is
-uploaded. Existing scheduled releases still require the configured signing key.
+always rebuild the requested target. Linux build-only runs always generate a disposable RSA-1024 signing pair and
+embed its matching public key, even when the production secret exists.
+These artifacts do not trust production automatic updates. No private key is
+uploaded. Published builds require a 1024-bit `CROSSGRAM_UPDATE_KEY` matching
+`features/updater/assets/update-public-key.pem`; the key is checked before compilation. Existing scheduled releases still require the configured signing key.
 A successful WSS native test is not a successful complete desktop build; inspect
 the desktop build job and uploaded artifacts separately. Upstream patch-anchor
 failures can still block individual targets (currently tdesktop and AyuGram).
