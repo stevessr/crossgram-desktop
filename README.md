@@ -183,6 +183,13 @@ tdata/<account-hash>/server-switch.json
 
 `QSaveFile` provides atomic writes. The file contains connection metadata and a public key, not account credentials.
 
+## WSS MTProto through Cloudflare
+
+Custom accounts can select `transport: "websocket"` with a strict `wss://`
+DNS URL. Legacy TCP JSON and official accounts remain supported. See
+[configuration, isolation, server/Cloudflare setup and verification](features/server-switch/WSS.md).
+Do not use the management `/api` WebSocket as an MTProto endpoint.
+
 ## CI and releases
 
 [`check.yml`](.github/workflows/check.yml) resolves and patches all 28 target/build-mode combinations (including runtime mode for every target) in parallel. Matrix fail-fast is disabled, so a broken upstream or brand does not cancel the others.

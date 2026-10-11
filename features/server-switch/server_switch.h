@@ -1,6 +1,9 @@
 #pragma once
 
+#include "crossgram/server_configuration.h"
+
 class QString;
+class QByteArray;
 
 namespace Main {
 class Account;
@@ -23,7 +26,8 @@ namespace Crossgram::ServerSwitch {
 [[nodiscard]] bool ApplyStored(
 	const QString &path,
 	not_null<MTP::DcOptions*> options,
-	QString *error = nullptr);
+	QString *error = nullptr,
+	QByteArray *identity = nullptr);
 
 void FillMenu(
 	not_null<Ui::PopupMenu*> menu,

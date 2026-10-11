@@ -1,0 +1,18 @@
+name: WSS native transport
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build qt6-base-dev qt6-websockets-dev libssl-dev openssl
+      - name: Resolve fixture hostname only to loopback
+        run: echo "::1 localhost.localdomain" | sudo tee -a /etc/hosts
+      - name: Compile and run production WSS stream and configuration tests
+        run: scripts/test-wss-native.sh "$RUNNER_TEMP/wss-native"

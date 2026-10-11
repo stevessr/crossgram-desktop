@@ -1,6 +1,8 @@
 import { PatchContext } from "../../src/core/patch-context.js";
 import type { Target } from "../../src/targets.js";
 
+import { patchWss } from "./wss-patch.js";
+
 interface PatchOptions {
   readonly root: string;
   readonly target: Target;
@@ -234,4 +236,5 @@ export async function patchServerSwitch(options: PatchOptions): Promise<void> {
       "\tif (_update) {\n\t\t_update->moveToRight(\n\t\t\tafterServerRight,",
     );
   });
+  await patchWss(context);
 }

@@ -1,0 +1,24 @@
+{
+  "name": "CrossGram WSS - TEST KEY ONLY",
+  "transport": "websocket",
+  "websocket_url": "wss://x.wmc.de5.net/mtproto",
+  "rsa_key": "-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEA5fszxWEwQVBNUmMKE62mFnpjQ1iHiBuriNf9Y8y/NLoeZdp6sZup\nmY9P4SkO5/NN+j5tbuYc87f2Tp0Ga+x5U+Ydy1AavDEJy8jZdfNgmJSdByeH5A2f\nuiHoWu6xIW6iBSvDWdKosXXNAL83OAgNRr/Bm2z7Ep20kPeONvlUVqUIRaokSYrT\nlFuaa8CcMYgpRqTpFJdRpAk9mzh2Rl93yUM9Chkt2lSn01/G/IHzxeadmaX6yO3P\nPqB7cTaPWw1xUrcHY6GWQJEwxSupJIEc12/9N2qSzBwkIZzdlEyoO5qoNKCr5+Ei\nJbr77+06yz/FjTSIcLsZq37F+8hQ9gk5dQIDAQAB\n-----END RSA PUBLIC KEY-----\n",
+  "enable_special_config": false,
+  "dcs": [
+    {
+      "id": 1
+    },
+    {
+      "id": 2
+    },
+    {
+      "id": 3
+    },
+    {
+      "id": 4
+    },
+    {
+      "id": 5
+    }
+  ]
+}

@@ -16,11 +16,14 @@ async function fixture(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), "crossgram-desktop-server-switch-"));
   temporaryDirectories.push(root);
   const files: Record<string, string> = {
-    "Telegram/CMakeLists.txt": `target_sources(Telegram PRIVATE
+    "Telegram/CMakeLists.txt": `init_non_host_target(Telegram)
+target_sources(Telegram PRIVATE
     countries/countries_manager.h
 )
 `,
     "Telegram/build/prepare/prepare.py": `    msbuild -m dump_syms.vcxproj /property:Configuration=Release /property:Platform="x64"
+qtbase qtimageformats qtsvg
+qtbase qtimageformats qtshadertools qtsvg
 `,
     "Telegram/SourceFiles/mtproto/mtproto_dc_options.h": `class DcOptions {
 public:
@@ -64,6 +67,7 @@ base::flat_set<QString> Account::collectGoodNames() const {
     "Telegram/SourceFiles/main/main_account.h": `class Account {
 public:
 \tvoid destroyStaleAuthorizationKeys();
+\tMTP::Instance::Fields _mtpFields;
 };
 `,
     "Telegram/SourceFiles/main/main_account.cpp": `#include "core/application.h"
@@ -73,6 +77,12 @@ void Account::start(std::unique_ptr<MTP::Config> config) {
 }
 
 void Account::destroyStaleAuthorizationKeys() {
+}
+void serialize() {
+\t\t\twriteKeys(stream, keysToDestroy);
+}
+void deserialize() {
+\treadKeys(_mtpKeysToDestroy);
 }
 `,
     "Telegram/SourceFiles/intro/intro_widget.h": `namespace Ui {
@@ -138,6 +148,24 @@ void Widget::resizeEvent() {
 }
 `,
   };
+  files["Telegram/build/docker/centos_env/Dockerfile"] = "qtbase qtdeclarative qtwayland qtimageformats qtsvg qtshadertools\n";
+  files["Telegram/SourceFiles/mtproto/session_private.cpp"] = `void connect() {
+\tdestroyAllConnections();
+
+\tif (realDcTypeChanged() && _keyCreator) {}
+\tif (_options->proxy.type == ProxyData::Type::Mtproto) {}
+}`;
+  files["Telegram/SourceFiles/mtproto/connection_tcp.cpp"] = `#include "mtproto/details/mtproto_abstract_socket.h"
+void connect() {
+\t_protocolDcId = protocolDcId;
+}
+QString transport() {
+\tauto result = u"TCP"_q;
+\tif (qthelp::is_ipv6(_address)) {
+\t\tresult += u"/IPv6"_q;
+\t}
+\treturn result;
+}`;
   await Promise.all(Object.entries(files).map(async ([relative, source]) => {
     const destination = path.join(root, relative);
     await mkdir(path.dirname(destination), { recursive: true });
@@ -164,7 +192,18 @@ describe("server switch patch", () => {
     expect(first).toContain('return _basePath + u"server-switch.json"_q;');
     expect(first.match(/"server-switch\.json",/g)).toHaveLength(1);
 
+    const tcp = await readFile(path.join(root, "Telegram/SourceFiles/mtproto/connection_tcp.cpp"), "utf8");
+    expect(tcp).toContain("std::make_unique<WssSocket>");
+    const session = await readFile(path.join(root, "Telegram/SourceFiles/mtproto/session_private.cpp"), "utf8");
+    expect(session).toContain("unmapped-or-cdn-dc");
+    expect(session).toContain("serverSwitchBlocked()");
+    expect(session).toContain("_options->proxy = ProxyData()");
+    const account = await readFile(path.join(root, "Telegram/SourceFiles/main/main_account.cpp"), "utf8");
+    expect(account).toContain("blockServerSwitchConfiguration()");
+    expect(account).not.toContain("prepared->dcOptions().useBuiltInConfiguration()");
+    expect(account).toContain("stream << quint32(0x43575331) << _serverSwitchIdentity");
     await patchServerSwitch(options);
+    expect(await readFile(path.join(root, "Telegram/SourceFiles/mtproto/connection_tcp.cpp"), "utf8")).toBe(tcp);
     expect(await readFile(storagePath, "utf8")).toBe(first);
   });
 });

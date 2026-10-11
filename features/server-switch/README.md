@@ -12,3 +12,6 @@ Integration points:
 - `Telegram/CMakeLists.txt`: compiles the injected implementation.
 
 Kotatogram is intentionally deferred: its current release needs a separate legacy integration path rather than the shared structural edits used by the supported targets.
+
+For the WSS socket adapter, account binding, limits and deployment instructions,
+see [WSS.md](WSS.md).
