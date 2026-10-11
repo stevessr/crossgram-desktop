@@ -1,4 +1,5 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { generateKeyPairSync } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,6 +22,7 @@ import {
   updateKeyPatches,
   updatePrefix,
   versionPatch,
+  validateUpdateKeyPair,
 } from "../features/updater/patch.js";
 import { targetById } from "../src/targets.js";
 
@@ -94,6 +96,12 @@ const versionHeader = [
   "",
 ].join("\n");
 
+const signingPair = generateKeyPairSync("rsa", {
+  modulusLength: 1024,
+  publicKeyEncoding: { type: "pkcs1", format: "pem" },
+  privateKeyEncoding: { type: "pkcs1", format: "pem" },
+});
+
 const key = cppKeyLiteral(
   "-----BEGIN RSA PUBLIC KEY-----\nMIGJ\n-----END RSA PUBLIC KEY-----\n",
 );
@@ -103,6 +111,24 @@ describe("desktop updater patch", () => {
     expect(crossgramVersion(242)).toBe(100_000_242);
     expect(() => crossgramVersion(0)).toThrow();
     expect(() => crossgramVersion(999_999_999)).toThrow();
+  });
+
+  it("checks the RSA-1024 signature width and signer identity", () => {
+    expect(() => validateUpdateKeyPair(signingPair.privateKey, signingPair.publicKey)).not.toThrow();
+    const unrelated = generateKeyPairSync("rsa", {
+      modulusLength: 1024,
+      privateKeyEncoding: { type: "pkcs1", format: "pem" },
+      publicKeyEncoding: { type: "pkcs1", format: "pem" },
+    });
+    expect(() => validateUpdateKeyPair(unrelated.privateKey, signingPair.publicKey))
+      .toThrow(/does not match/);
+    const oversize = generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      privateKeyEncoding: { type: "pkcs1", format: "pem" },
+      publicKeyEncoding: { type: "pkcs1", format: "pem" },
+    });
+    expect(() => validateUpdateKeyPair(oversize.privateKey, oversize.publicKey))
+      .toThrow(/RSA-1024/);
   });
 
   it("renders keys as the upstream C++ string literals", () => {
@@ -157,6 +183,7 @@ async function applyToTree(options: {
   platform: "windows" | "linux" | null;
   build: number | null;
   privateKey: string | null;
+  publicKey?: string | null;
   brand?: string;
   target?: "ayugram" | "tdesktop";
 }): Promise<string> {
@@ -178,6 +205,7 @@ async function applyToTree(options: {
     build: options.build,
     featureRoot: join(process.cwd(), "features/updater"),
     privateKey: options.privateKey,
+    publicKey: options.publicKey,
   });
   return root;
 }
@@ -202,7 +230,8 @@ describe("desktop updater e2e", () => {
     const root = await applyToTree({
       platform: "windows",
       build: 242,
-      privateKey: "-----BEGIN RSA PRIVATE KEY-----\nPRIVATE\n-----END RSA PRIVATE KEY-----\n",
+      privateKey: signingPair.privateKey,
+      publicKey: signingPair.publicKey,
     });
     trees.push(root);
     const version = await readFile(join(root, VERSION_ROOT), "utf8");
@@ -231,7 +260,8 @@ describe("desktop updater e2e", () => {
       platform: "windows",
       build: 242,
       featureRoot: join(process.cwd(), "features/updater"),
-      privateKey: "-----BEGIN RSA PRIVATE KEY-----\nPRIVATE\n-----END RSA PRIVATE KEY-----\n",
+      privateKey: signingPair.privateKey,
+      publicKey: signingPair.publicKey,
     });
     const after = await Promise.all(
       [VERSION_ROOT, CONFIG_ROOT, LOCALSTORAGE_ROOT, PACKER_ROOT, CMAKE_ROOT].map((relative) =>
@@ -270,6 +300,7 @@ describe("desktop updater wiring", () => {
     expect(cli).toContain('platform: { type: "string" },');
     expect(cli).toContain('build: { type: "string" },');
     expect(cli).toContain('"update-key-file": { type: "string" },');
+    expect(cli).toContain('"update-public-key-file": { type: "string" },');
   });
 });
 
