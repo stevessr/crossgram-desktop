@@ -14,9 +14,18 @@ on:
           - materialgram
           - all
       brands:
-        description: Universal runtime package, or explicit legacy brand selection
-        type: string
+        description: Build brand (runtime = universal package; all = all legacy brands)
+        type: choice
         default: runtime
+        options:
+          - runtime
+          - all
+          - cross
+          - qq
+          - wechat
+          - wecom
+          - dingtalk
+          - discord
 
 permissions:
   contents: write
