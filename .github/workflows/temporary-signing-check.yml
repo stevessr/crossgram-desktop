@@ -29,5 +29,4 @@ jobs:
           node-version: 24
       - run: corepack enable
       - run: yarn install --immutable
-      - run: yarn typecheck
-      - run: yarn vitest run tests/updater.test.ts tests/linux-build-workflow.test.ts tests/update-signing-workflow.test.ts
+      - run: yarn check
