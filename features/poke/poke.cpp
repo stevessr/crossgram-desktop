@@ -10,6 +10,7 @@
 #include "main/main_session.h"
 #include "mtproto/facade.h"
 #include "window/window_session_controller.h"
+#include "ui/widgets/popup_menu.h"
 
 #include <QtCore/QDateTime>
 #include <QtCore/QJsonDocument>
@@ -74,7 +75,7 @@ SessionState &StateFor(not_null<Main::Session*> session) {
 /** Read `{"poke":{"maxCount":n}}` from the relay's feature payload. */
 std::optional<int> ParseMaxCount(const MTPDataJSON &result) {
 	return result.match([](const MTPDdataJSON &data) {
-		const auto document = QJsonDocument::fromJson(data.vdata().v.toUtf8());
+		const auto document = QJsonDocument::fromJson(data.vdata().v);
 		const auto poke = document.isObject()
 			? document.object().value(QStringLiteral("poke"))
 			: QJsonValue();
