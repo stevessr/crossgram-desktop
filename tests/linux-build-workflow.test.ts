@@ -8,6 +8,9 @@ describe("Linux packer signing header visibility", () => {
     expect(workflow).toContain('public_key_args=(--update-public-key-file "$UPDATE_PUBLIC_KEY_FILE")');
     expect(workflow).toContain('"${public_key_args[@]}"');
     expect(workflow).not.toContain('openssl genrsa -out "$UPDATE_KEY_FILE" 2048');
+    // Upstream Packer writes tlinuxupd<version> into its CWD, not -path.
+    expect(workflow).toContain('-w "/work/artifacts/payload-work-$brand"');
+    expect(workflow).toContain('payload_source="$payload_work/tlinuxupd$crossgram_version"');
   });
 
   it("mounts generated sibling headers read-only into the compilation container", () => {
