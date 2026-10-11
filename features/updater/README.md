@@ -37,6 +37,15 @@ Windows/Linux 构建在同一个 run 里用上游自己的 `Packer` 生成签名
 产物 `crossgram-<target>-<brand>-<platform>-<version>.upd` 随 Release 一起发布；publish
 阶段会校验签名（SHA-1 + `openssl dgst -verify`）、生成 feed 文本并推送到 `updates` 分支。
 
+## 签名密钥要求
+
+上游 Packer 的自动更新格式固定使用 128 字节 RSA/SHA-1 签名，私钥必须是
+**RSA-1024**，并与 `assets/update-public-key.pem` 中的公钥匹配。发布时工作流及
+patcher 在编译前拒绝 2048 位或不匹配的私钥。不能仅重新生成私钥而保留旧公钥。
+
+Linux 手动 build-only 始终生成临时 RSA-1024 私钥和对应公钥，并同时注入
+Packer 和客户端。这类构建用于下载测试，不兼容生产更新源的签名，不上传私钥。
+
 ## 说明
 
 - 只有 `--platform` 与 `--build` 同时给出时才会改动版本号/更新源；本地或 check 工作流

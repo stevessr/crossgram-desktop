@@ -2,6 +2,17 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("Linux packer signing header visibility", () => {
+  it("preflights signing keys and injects the matching disposable public key", () => {
+    const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
+    expect(workflow).toContain('source "$patcher/scripts/ci/prepare-update-key.sh"');
+    expect(workflow).toContain('public_key_args=(--update-public-key-file "$UPDATE_PUBLIC_KEY_FILE")');
+    expect(workflow).toContain('"${public_key_args[@]}"');
+    expect(workflow).not.toContain('openssl genrsa -out "$UPDATE_KEY_FILE" 2048');
+    // Upstream Packer writes tlinuxupd<version> into its CWD, not -path.
+    expect(workflow).toContain('-w "/work/artifacts/payload-work-$brand"');
+    expect(workflow).toContain('payload_source="$payload_work/tlinuxupd$crossgram_version"');
+  });
+
   it("mounts generated sibling headers read-only into the compilation container", () => {
     const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
     const build = workflow.slice(workflow.indexOf('            cd "$source"'), workflow.indexOf('            binary="$source/out/Release/$product"'));

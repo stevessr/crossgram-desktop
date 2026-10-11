@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createPrivateKey, createPublicKey } from "node:crypto";
 import { dirname, join } from "node:path";
 
 import { PatchContext } from "../../src/core/patch-context.js";
@@ -37,6 +38,8 @@ export interface UpdaterPatchOptions {
   readonly featureRoot: string;
   /** RSA private key the CI injects into the upstream packer; optional. */
   readonly privateKey?: string | null;
+  /** Optional matching public key for isolated build-only signing. */
+  readonly publicKey?: string | null;
 }
 
 export interface TextPatch {
@@ -59,6 +62,26 @@ export function updatePrefix(
   platform: UpdatePlatform,
 ): string {
   return FEED_BASE + "/" + target + "-" + brand + "/" + platform;
+}
+
+/** Reject incompatible keys before starting the expensive C++ build. */
+export function validateUpdateKeyPair(privatePem: string, publicPem: string): void {
+  try {
+    const privateKey = createPrivateKey(privatePem);
+    if (privateKey.asymmetricKeyType !== "rsa" ||
+        privateKey.asymmetricKeyDetails?.modulusLength !== 1024) {
+      throw new PatchError("Desktop update signing requires an RSA-1024 private key (128-byte signature).");
+    }
+    const derived = createPublicKey(privateKey).export({ type: "spki", format: "der" });
+    const trusted = createPublicKey(publicPem).export({ type: "spki", format: "der" });
+    if (!derived.equals(trusted)) {
+      throw new PatchError("Desktop update signing private key does not match the embedded public key.");
+    }
+  } catch (error) {
+    if (error instanceof PatchError) throw error;
+    const reason = error instanceof Error ? error.message : "unknown crypto error";
+    throw new PatchError("Invalid desktop update RSA signing key pair (PEM): " + reason);
+  }
 }
 
 /** Render a PEM the way the upstream sources spell their C++ literals. */
@@ -198,7 +221,8 @@ export function prefixFunction(prefix: string, signature: string = PREFIX_SIGNAT
 
 export async function patchUpdater(options: UpdaterPatchOptions): Promise<void> {
   const context = new PatchContext(options.root, options.target, options.featureRoot);
-  const pem = await readFile(join(options.featureRoot, "assets", "update-public-key.pem"), "utf8");
+  const pem = options.publicKey ?? await readFile(join(options.featureRoot, "assets", "update-public-key.pem"), "utf8");
+  if (options.privateKey) validateUpdateKeyPair(options.privateKey, pem);
   const key = cppKeyLiteral(pem);
   const active = options.platform !== null && options.build !== null;
 

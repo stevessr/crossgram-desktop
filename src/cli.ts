@@ -33,6 +33,7 @@ const { positionals, values } = parseArgs({
     platform: { type: "string" },
     build: { type: "string" },
     "update-key-file": { type: "string" },
+    "update-public-key-file": { type: "string" },
   },
 });
 
@@ -155,6 +156,9 @@ if (!values.target || (command === "patch" && !values.root) || !["patch", "metad
       build: values.build ? Number(values.build) : null,
       featureRoot: resolve(repositoryRoot, "features/updater"),
       privateKey: await readPrivateKey(values["update-key-file"]),
+      publicKey: values["update-public-key-file"]
+        ? await readFile(values["update-public-key-file"], "utf8")
+        : null,
     });
     if (features.has("e2e")) {
       await patchE2e({

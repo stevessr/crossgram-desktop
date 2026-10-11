@@ -409,8 +409,12 @@ jobs:
             if [ "$reset" = true ]; then
               git -C "$source" checkout -- "${branding_paths[@]}"
             fi
+            public_key_args=()
+            if [ -n "$UPDATE_PUBLIC_KEY_FILE" ]; then
+              public_key_args=(--update-public-key-file "$UPDATE_PUBLIC_KEY_FILE")
+            fi
             (cd "$patcher" && yarn apply --target "$TARGET" --brand "$brand" --root "$source" \
-              --platform linux --build "$RUN_NUMBER" --update-key-file "$UPDATE_KEY_FILE")
+              --platform linux --build "$RUN_NUMBER" --update-key-file "$UPDATE_KEY_FILE" "${public_key_args[@]}")
             git -C "$source" diff --check
           }
           metadata_for() {
@@ -448,19 +452,9 @@ jobs:
           PY
           }
 
-          UPDATE_KEY_FILE="$RUNNER_TEMP/crossgram-update-key.pem"
-          if [ -z "$UPDATE_KEY" ]; then
-            if [ "$BUILD_ONLY" != true ]; then
-              echo "The CROSSGRAM_UPDATE_KEY secret is required to sign updates" >&2
-              exit 1
-            fi
-            # Isolated manual builds do not publish or share a release signing key.
-            openssl genrsa -out "$UPDATE_KEY_FILE" 2048
-            chmod 600 "$UPDATE_KEY_FILE"
-            echo "Build-only artifact uses an ephemeral update key; not for production updates." >> "$GITHUB_STEP_SUMMARY"
-          else
-            printf '%s' "$UPDATE_KEY" > "$UPDATE_KEY_FILE"
-          fi
+          # Validate release secrets before compilation; isolated builds generate
+          # a matching disposable RSA-1024 key pair instead.
+          source "$patcher/scripts/ci/prepare-update-key.sh"
 
           first_metadata="$(metadata_for "${brands[0]}")"
           apply_brand "${brands[0]}" false
@@ -716,7 +710,7 @@ jobs:
             mkdir -p "$payload_work"
             docker run --rm \
               -u "$(id -u)" \
-              -w /work \
+              -w "/work/artifacts/payload-work-$brand" \
               -v "$GITHUB_WORKSPACE:/work" \
               -v "$source:/usr/src/tdesktop" \
               crossgram-tdesktop-build \
