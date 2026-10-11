@@ -115,6 +115,19 @@ jobs:
           submodules: recursive
           path: work/TBuild/source
 
+      # Cache object files, not the CMake build directory or signing artifacts.
+      # Telegram-only launcher below keeps the private-key Packer out of ccache.
+      - name: Restore Linux C++ compiler cache
+        if: runner.os == 'Linux'
+        id: linux_compiler_cache
+        uses: actions/cache/restore@v6
+        with:
+          path: work/ccache
+          key: crossgram-linux-ccache-v1-${{ runner.arch }}-${{ matrix.build.target }}-${{ matrix.build.tag }}-${{ github.sha }}
+          restore-keys: |
+            crossgram-linux-ccache-v1-${{ runner.arch }}-${{ matrix.build.target }}-${{ matrix.build.tag }}-
+            crossgram-linux-ccache-v1-${{ runner.arch }}-${{ matrix.build.target }}-
+
       - name: Restore native dependency cache
         if: runner.os == 'Windows' || runner.os == 'macOS'
         uses: actions/cache@v6
@@ -412,6 +425,29 @@ jobs:
             printf '%s\n' "$json"
           }
 
+          # Set the compiler launcher only for the Telegram target. In particular,
+          # Packer compiles signing headers, so it must never enter a shared cache.
+          enable_compiler_cache() {
+            python3 - "$source/Telegram/CMakeLists.txt" <<'PY'
+          from pathlib import Path
+          import sys
+
+          path = Path(sys.argv[1])
+          content = path.read_text()
+          anchor = "add_executable(Telegram WIN32 MACOSX_BUNDLE)"
+          if content.count(anchor) != 1:
+              raise SystemExit("Cannot locate Telegram target to enable safe ccache")
+          content = content.replace(
+              anchor,
+              anchor
+              + "\nset_property(TARGET Telegram PROPERTY C_COMPILER_LAUNCHER ccache)"
+              + "\nset_property(TARGET Telegram PROPERTY CXX_COMPILER_LAUNCHER ccache)",
+              1,
+          )
+          path.write_text(content)
+          PY
+          }
+
           UPDATE_KEY_FILE="$RUNNER_TEMP/crossgram-update-key.pem"
           if [ -z "$UPDATE_KEY" ]; then
             if [ "$BUILD_ONLY" != true ]; then
@@ -582,6 +618,8 @@ jobs:
             effective_hash="$OVERRIDE_API_HASH"
           fi
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          compiler_cache="$GITHUB_WORKSPACE/work/ccache"
+          mkdir -p "$compiler_cache"
           release_optimization=-O3
           if [ "$TARGET" = ayugram ]; then
             # AyuGram's Linux translation units repeatedly exceed the hosted
@@ -594,6 +632,7 @@ jobs:
             if [ "$index" -gt 0 ]; then apply_brand "$brand" true; fi
             metadata="$(metadata_for "$brand")"
             product="$(jq -r .executable <<<"$metadata")"
+            enable_compiler_cache
             cd "$source"
             # The packer include escapes the source checkout into its sibling.
             # Keep signing headers out of the image/cache and mount them read-only.
@@ -610,6 +649,12 @@ jobs:
               -w /usr/src/tdesktop \
               -v "$PWD:/usr/src/tdesktop" \
               -v "$private_dir:/usr/src/DesktopPrivate:ro" \
+              -v "$compiler_cache:/usr/src/ccache" \
+              -e CCACHE_DIR=/usr/src/ccache \
+              -e CCACHE_BASEDIR=/usr/src/tdesktop \
+              -e CCACHE_MAXSIZE=2G \
+              -e CCACHE_COMPRESS=1 \
+              -e CCACHE_COMPRESSLEVEL=1 \
               -e CONFIG=Release \
               crossgram-tdesktop-build \
               /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
@@ -693,6 +738,15 @@ jobs:
             --arg tag "$UPSTREAM_TAG" \
             '{ target: $target, repository: $repository, tag: $tag }' \
             > "$GITHUB_WORKSPACE/artifacts/crossgram-$TARGET-$BRAND_BATCH-linux-$VERSION.upstream.json"
+
+      # Save successful and partial C++ objects even if a later TU fails.
+      # Never cache the build tree: it also contains generated signing outputs.
+      - name: Save Linux C++ compiler cache
+        if: always() && runner.os == 'Linux' && steps.linux_compiler_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: work/ccache
+          key: crossgram-linux-ccache-v1-${{ runner.arch }}-${{ matrix.build.target }}-${{ matrix.build.tag }}-${{ github.sha }}
 
       - name: Build, smoke test, and package macOS brands
         if: runner.os == 'macOS'
