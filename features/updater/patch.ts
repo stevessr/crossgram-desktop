@@ -72,8 +72,8 @@ export function validateUpdateKeyPair(privatePem: string, publicPem: string): vo
         privateKey.asymmetricKeyDetails?.modulusLength !== 1024) {
       throw new PatchError("Desktop update signing requires an RSA-1024 private key (128-byte signature).");
     }
-    const derived = createPublicKey(privateKey).export({ type: "pkcs1", format: "der" });
-    const trusted = createPublicKey(publicPem).export({ type: "pkcs1", format: "der" });
+    const derived = createPublicKey(privateKey).export({ type: "spki", format: "der" });
+    const trusted = createPublicKey(publicPem).export({ type: "spki", format: "der" });
     if (!derived.equals(trusted)) {
       throw new PatchError("Desktop update signing private key does not match the embedded public key.");
     }
