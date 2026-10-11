@@ -595,10 +595,21 @@ jobs:
             metadata="$(metadata_for "$brand")"
             product="$(jq -r .executable <<<"$metadata")"
             cd "$source"
+            # The packer include escapes the source checkout into its sibling.
+            # Keep signing headers out of the image/cache and mount them read-only.
+            private_dir="$(dirname "$source")/DesktopPrivate"
+            mkdir -p "$private_dir"
+            if grep -Fq '../../../../DesktopPrivate/packer_private.h' Telegram/SourceFiles/_other/packer.cpp; then
+              test -s "$private_dir/packer_private.h"
+            fi
+            if grep -Fq '../../../../DesktopPrivate/alpha_private.h' Telegram/SourceFiles/_other/packer.cpp; then
+              test -s "$private_dir/alpha_private.h"
+            fi
             docker run --rm \
               -u "$(id -u)" \
               -w /usr/src/tdesktop \
               -v "$PWD:/usr/src/tdesktop" \
+              -v "$private_dir:/usr/src/DesktopPrivate:ro" \
               -e CONFIG=Release \
               crossgram-tdesktop-build \
               /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
