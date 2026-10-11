@@ -1,0 +1,32 @@
+name: Manual Linux desktop build
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Desktop upstream (64Gram currently passes patch compatibility)
+        type: choice
+        default: tdesktop-x64
+        options:
+          - tdesktop-x64
+          - tdesktop
+          - ayugram
+          - materialgram
+          - all
+      brands:
+        description: Universal runtime package, or explicit legacy brand selection
+        type: string
+        default: runtime
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    uses: ./.github/workflows/release.yml
+    with:
+      platforms: linux
+      target: ${{ inputs.target }}
+      brands: ${{ inputs.brands }}
+      build_only: true
+    secrets: inherit

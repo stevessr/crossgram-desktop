@@ -231,3 +231,17 @@ yarn build
 ```
 
 The test suite covers structural function matching, CRLF preservation, ambiguous-anchor rejection, and the supported-target registry. Runtime tests require `ffmpeg`, `ffprobe`, and a C++20 compiler (`clang++` by default; override its executable with `CXX`). The accessibility regression compiles and executes the generated cache code instead of relying only on text assertions. The CJK segmentation regression compiles and executes the generated dictionary and word boundaries the same way.
+
+### Manual Linux build (without publishing)
+
+Open **Actions → Manual Linux desktop build → Run workflow**. Select an upstream
+(default: `tdesktop-x64` / 64Gram) and `runtime` for the universal package. This
+reuses the native desktop build and smoke-test pipeline, uploads packages/symbols
+as Actions artifacts, and never runs the release publication job. Manual builds
+always rebuild the requested target. If `CROSSGRAM_UPDATE_KEY` is absent, this
+build-only Linux mode generates an ephemeral signing key on the runner; those
+artifacts are not suitable for production automatic updates. No private key is
+uploaded. Existing scheduled releases still require the configured signing key.
+A successful WSS native test is not a successful complete desktop build; inspect
+the desktop build job and uploaded artifacts separately. Upstream patch-anchor
+failures can still block individual targets (currently tdesktop and AyuGram).

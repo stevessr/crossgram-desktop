@@ -1,6 +1,20 @@
 name: Build and publish Crossgram Desktop
 
 on:
+  workflow_call:
+    inputs:
+      platforms:
+        type: string
+        default: linux
+      target:
+        type: string
+        default: tdesktop-x64
+      brands:
+        type: string
+        default: runtime
+      build_only:
+        type: boolean
+        default: true
   schedule:
     - cron: "43 3 * * *"
   workflow_dispatch:
@@ -164,6 +178,7 @@ jobs:
           BRAND_BATCH: ${{ matrix.build.batch }}
           RUN_NUMBER: ${{ github.run_number }}
           UPDATE_KEY: ${{ secrets.CROSSGRAM_UPDATE_KEY }}
+          BUILD_ONLY: ${{ inputs.build_only }}
           OVERRIDE_API_ID: ${{ secrets.TDESKTOP_API_ID }}
           OVERRIDE_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
@@ -356,6 +371,7 @@ jobs:
           BRAND_BATCH: ${{ matrix.build.batch }}
           RUN_NUMBER: ${{ github.run_number }}
           UPDATE_KEY: ${{ secrets.CROSSGRAM_UPDATE_KEY }}
+          BUILD_ONLY: ${{ inputs.build_only }}
           OVERRIDE_API_ID: ${{ secrets.TDESKTOP_API_ID }}
           OVERRIDE_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
@@ -398,10 +414,17 @@ jobs:
 
           UPDATE_KEY_FILE="$RUNNER_TEMP/crossgram-update-key.pem"
           if [ -z "$UPDATE_KEY" ]; then
-            echo "The CROSSGRAM_UPDATE_KEY secret is required to sign updates" >&2
-            exit 1
+            if [ "$BUILD_ONLY" != true ]; then
+              echo "The CROSSGRAM_UPDATE_KEY secret is required to sign updates" >&2
+              exit 1
+            fi
+            # Isolated manual builds do not publish or share a release signing key.
+            openssl genrsa -out "$UPDATE_KEY_FILE" 2048
+            chmod 600 "$UPDATE_KEY_FILE"
+            echo "Build-only artifact uses an ephemeral update key; not for production updates." >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf '%s' "$UPDATE_KEY" > "$UPDATE_KEY_FILE"
           fi
-          printf '%s' "$UPDATE_KEY" > "$UPDATE_KEY_FILE"
 
           first_metadata="$(metadata_for "${brands[0]}")"
           apply_brand "${brands[0]}" false
@@ -850,6 +873,7 @@ jobs:
     name: Publish one unified release
     if: >-
       always() &&
+      !inputs.build_only &&
       needs.plan.outputs.needed == 'true' &&
       (github.event_name == 'schedule' ||
        (inputs.platforms == 'all' &&
