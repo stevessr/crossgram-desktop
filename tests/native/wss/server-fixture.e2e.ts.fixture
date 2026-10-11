@@ -1,0 +1,44 @@
+// Copy beside CrossGram transport tests and run using that repo's Vitest config.
+// Uses only loopback, ephemeral ports and generated keys; never logs in.
+import { it, expect } from 'vitest'
+import { Context } from 'cordis'
+import { LogManager } from '@mtcute/core/utils.js'
+import { NodePlatform } from '@mtcute/node'
+import { generateRsaKeyPair } from '../crypto/rsa-keygen.js'
+import { Mtproto } from '../service.js'
+import { createServer } from 'node:tls'
+import { connect } from 'node:net'
+import { readFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+
+it('answers production Qt WSS obfuscated/abridged req_pq through a loopback TLS origin', async () => {
+  const rsaKey = generateRsaKeyPair()
+  const log = new LogManager('fixture', new NodePlatform()); log.level = LogManager.OFF
+  const ctx = new Context()
+  const fiber = ctx.plugin(Mtproto, { host: '127.0.0.1', port: 0, wsPort: 0, rsaKey, log })
+  await fiber
+  const sockets = new Set<import('node:stream').Duplex>()
+  const server = createServer({ cert: readFileSync(process.env.WSS_FIXTURE_CERT!), key: readFileSync(process.env.WSS_FIXTURE_KEY!) }, socket => {
+    expect(socket.servername).toBe('localhost.localdomain')
+    const upstream = connect(ctx.mtproto.wsPort!, '127.0.0.1')
+    sockets.add(socket); sockets.add(upstream)
+    socket.pipe(upstream).pipe(socket)
+    socket.on('error', () => upstream.destroy())
+    upstream.on('error', () => socket.destroy())
+    socket.on('close', () => { upstream.destroy(); sockets.delete(socket) })
+    upstream.on('close', () => { socket.destroy(); sockets.delete(upstream) })
+  })
+  await new Promise<void>(resolve => server.listen(0, '::1', resolve))
+  try {
+    const address = server.address() as import('node:net').AddressInfo
+    const child = spawn(process.env.WSS_FIXTURE_BINARY!, [`wss://localhost.localdomain:${address.port}/mtproto`, process.env.WSS_FIXTURE_CERT!, rsaKey.fingerprint])
+    let output = ''; child.stdout.on('data', data => { output += data }); child.stderr.on('data', data => { output += data })
+    const status = await new Promise<number | null>((resolve, reject) => { child.on('error', reject); child.on('close', resolve) })
+    expect(status, output).toBe(0)
+    console.log(output.trim())
+  } finally {
+    for (const socket of sockets) socket.destroy()
+    await new Promise<void>(resolve => server.close(() => resolve()))
+    await fiber.dispose()
+  }
+})

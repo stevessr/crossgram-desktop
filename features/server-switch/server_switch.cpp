@@ -1,7 +1,7 @@
 #include "crossgram/server_switch.h"
+#include "crossgram/server_configuration.h"
 
 #include "base/bytes.h"
-#include "base/flat_set.h"
 #include "main/main_account.h"
 #include "mtproto/details/mtproto_rsa_public_key.h"
 #include "mtproto/mtproto_dc_options.h"
@@ -17,138 +17,26 @@
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
-#include <QtCore/QJsonArray>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QJsonObject>
 #include <QtCore/QSaveFile>
 #include <QtGui/QClipboard>
 #include <QtGui/QGuiApplication>
-#include <QtNetwork/QHostAddress>
 
 namespace Crossgram::ServerSwitch {
 namespace {
 
-struct Configuration {
-	QString name;
-	QString host;
-	int port = 0;
-	QByteArray rsaKey;
-	std::vector<MTP::DcOptions::Endpoint> endpoints;
-	bool enableSpecialConfig = false;
-};
-
 [[nodiscard]] bool Fail(QString *error, QString text) {
-	if (error) {
-		*error = std::move(text);
-	}
+	if (error) *error = std::move(text);
 	return false;
 }
 
-[[nodiscard]] bool ReadPort(
-		const QJsonValue &value,
-		int *result) {
-	if (!value.isDouble()) {
-		return false;
-	}
-	const auto number = value.toDouble();
-	const auto integer = int(number);
-	if (number != integer || integer < 1 || integer > 65535) {
-		return false;
-	}
-	*result = integer;
-	return true;
-}
-
-[[nodiscard]] bool ReadAddress(
-		const QJsonValue &value,
-		QString *result) {
-	if (!value.isString()) {
-		return false;
-	}
-	const auto address = value.toString().trimmed();
-	if (QHostAddress(address).isNull()) {
-		return false;
-	}
-	*result = address;
-	return true;
-}
-
-[[nodiscard]] bool Parse(
-		const QByteArray &json,
-		Configuration *result,
-		QString *error) {
-	auto parseError = QJsonParseError();
-	const auto document = QJsonDocument::fromJson(json, &parseError);
-	if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
-		return Fail(error, u"Configuration must be a JSON object: %1"_q
-			.arg(parseError.errorString()));
-	}
-
-	const auto object = document.object();
-	auto parsed = Configuration();
-	parsed.name = object.value(u"name"_q).toString().trimmed();
-	if (parsed.name.isEmpty()) {
-		return Fail(error, u"name must be a non-empty string."_q);
-	}
-	if (!object.value(u"enable_special_config"_q).isBool()) {
-		return Fail(error, u"enable_special_config must be a boolean."_q);
-	}
-	parsed.enableSpecialConfig = object.value(
-		u"enable_special_config"_q).toBool();
-	if (!ReadAddress(object.value(u"host"_q), &parsed.host)) {
-		return Fail(error, u"host must be a valid IPv4 or IPv6 address."_q);
-	}
-	if (!ReadPort(object.value(u"port"_q), &parsed.port)) {
-		return Fail(error, u"port must be an integer between 1 and 65535."_q);
-	}
-	if (!object.value(u"rsa_key"_q).isString()) {
-		return Fail(error, u"rsa_key must be a PEM string."_q);
-	}
-	parsed.rsaKey = object.value(u"rsa_key"_q).toString().toUtf8();
-	const auto rsa = MTP::details::RSAPublicKey(
-		bytes::make_span(parsed.rsaKey));
-	if (!rsa.valid()) {
-		return Fail(error, u"rsa_key is not a valid RSA public key."_q);
-	}
-
-	const auto dcsValue = object.value(u"dcs"_q);
-	if (!dcsValue.isArray() || dcsValue.toArray().isEmpty()) {
-		return Fail(error, u"dcs must be a non-empty array."_q);
-	}
-	auto ids = base::flat_set<int>();
-	for (const auto &value : dcsValue.toArray()) {
-		if (!value.isObject()) {
-			return Fail(error, u"Every dcs entry must be an object."_q);
-		}
-		const auto dc = value.toObject();
-		const auto idValue = dc.value(u"id"_q);
-		if (!idValue.isDouble()) {
-			return Fail(error, u"Every dcs entry needs an integer id."_q);
-		}
-		const auto idNumber = idValue.toDouble();
-		const auto id = int(idNumber);
-		if (idNumber != id || id < 1 || id > 1000 || ids.contains(id)) {
-			return Fail(error, u"DC ids must be unique integers from 1 to 1000."_q);
-		}
-		ids.emplace(id);
-		auto address = QString();
-		if (!ReadAddress(dc.value(u"ip"_q), &address)) {
-			return Fail(error, u"Every dcs entry needs a valid ip address."_q);
-		}
-		auto port = 0;
-		if (!ReadPort(dc.value(u"port"_q), &port)) {
-			return Fail(error, u"Every dcs entry needs a valid port."_q);
-		}
-		parsed.endpoints.emplace_back(
-			id,
-			MTP::DcOptions::Flag::f_static,
-			address.toStdString(),
-			port,
-			bytes::vector());
-	}
-
-	*result = std::move(parsed);
-	return true;
+[[nodiscard]] bool Parse(const QByteArray &json, Configuration *result, QString *error) {
+	return ParseServerConfiguration(json, result, error, [](const QByteArray &key) {
+		// Upstream's unknown PEM format is a fatal programming error, not a
+		// user input validation path. Reject it before invoking that parser.
+		if (!key.contains("BEGIN RSA PUBLIC KEY") && !key.contains("BEGIN PUBLIC KEY")) return false;
+		const auto parsed = MTP::details::RSAPublicKey(bytes::make_span(key));
+		return parsed.valid() && parsed.getN().size() == 256;
+	});
 }
 
 [[nodiscard]] bool Load(
@@ -160,6 +48,7 @@ struct Configuration {
 		return Fail(error, u"Could not read %1: %2"_q
 			.arg(path, file.errorString()));
 	}
+	if (file.size() > 1024 * 1024) return Fail(error, u"Configuration exceeds 1 MiB."_q);
 	return Parse(file.readAll(), result, error);
 }
 
@@ -198,6 +87,7 @@ void ShowEditor(
 	box->setFocusCallback([=] { field->setFocusFast(); });
 
 	const auto submit = [=] {
+		if (account->sessionExists()) return;
 		const auto json = field->getLastText().toUtf8();
 		auto parsed = Configuration();
 		auto error = QString();
@@ -223,6 +113,7 @@ void ShowEditor(
 void UseOfficial(
 		not_null<Window::Controller*> controller,
 		not_null<Main::Account*> account) {
+	if (account->sessionExists()) return;
 	const auto path = account->local().serverSwitchConfigPath();
 	if (QFile::exists(path) && !QFile::remove(path)) {
 		controller->showToast(u"Could not remove the custom configuration."_q);
@@ -241,21 +132,30 @@ void UseOfficial(
 bool ApplyStored(
 		const QString &path,
 		not_null<MTP::DcOptions*> options,
-		QString *error) {
+		QString *error,
+		QByteArray *identity) {
 	if (!QFile::exists(path)) {
 		options->useBuiltInConfiguration();
+		if (identity) *identity = QByteArray("official");
 		return true;
 	}
 	auto configuration = Configuration();
 	if (!Load(path, &configuration, error)) {
 		return false;
 	}
+	auto endpoints = std::vector<MTP::DcOptions::Endpoint>();
+	for (const auto &endpoint : configuration.endpoints) {
+		endpoints.emplace_back(endpoint.id, MTP::DcOptions::Flag::f_static,
+			endpoint.address.toStdString(), endpoint.port, bytes::vector());
+	}
 	if (!options->useCustomConfiguration(
-			configuration.endpoints,
+			endpoints,
 			configuration.rsaKey,
-			configuration.enableSpecialConfig)) {
+			configuration.enableSpecialConfig,
+			configuration.websocketUrls)) {
 		return Fail(error, u"The custom MTProto configuration is invalid."_q);
 	}
+	if (identity) *identity = ConfigurationIdentity(configuration);
 	return true;
 }
 

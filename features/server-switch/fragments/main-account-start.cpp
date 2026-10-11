@@ -5,14 +5,20 @@ void Account::start(std::unique_ptr<MTP::Config> config) {
 		: std::make_unique<MTP::Config>(
 			Core::App().fallbackProductionConfig());
 	auto error = QString();
-	if (!Crossgram::ServerSwitch::ApplyStored(
-			_local->serverSwitchConfigPath(),
-			&prepared->dcOptions(),
-			&error)) {
-		LOG(("Server Switch Error: %1").arg(error));
-		prepared->dcOptions().useBuiltInConfiguration();
+	auto identity = QByteArray();
+	const auto applied = Crossgram::ServerSwitch::ApplyStored(
+		_local->serverSwitchConfigPath(), &prepared->dcOptions(), &error, &identity);
+	const auto hasKeys = !_mtpFields.keys.empty() || !_mtpKeysToDestroy.empty() || bool(_sessionUserId);
+	if (!applied || !Crossgram::ServerSwitch::CanUseServerIdentity(_serverSwitchIdentity, identity,
+			hasKeys, prepared->dcOptions().websocketTransport())) {
+		LOG(("Server Switch Error: configuration invalid or server identity mismatch; this account is offline."));
+		prepared->dcOptions().blockServerSwitchConfiguration();
+		// Keep the original key binding: restoring the original JSON recovers it.
+	} else {
+		_serverSwitchIdentity = identity;
 	}
 	startMtp(std::move(prepared));
+	local().writeMtpData();
 	_appConfig->start();
 	watchProxyChanges();
 	watchSessionChanges();

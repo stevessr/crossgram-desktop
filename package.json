@@ -15,6 +15,7 @@
     "e2e:native-smoke": "node tests/native/e2e/smoke.mjs",
     "metadata": "tsx src/cli.ts metadata",
     "test": "vitest run",
+    "test:wss-native": "bash scripts/test-wss-native.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
