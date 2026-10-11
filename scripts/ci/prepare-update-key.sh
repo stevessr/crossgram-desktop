@@ -26,7 +26,7 @@ if ! openssl rsa -in "$UPDATE_KEY_FILE" -check -noout >/dev/null 2>&1; then
   echo "Invalid CROSSGRAM_UPDATE_KEY: expected an unencrypted RSA private key in PEM format." >&2
   return 1
 fi
-key_bits="$(openssl rsa -in "$UPDATE_KEY_FILE" -text -noout 2>/dev/null | sed -nE '1s/.*\\(([0-9]+) bit.*/\\1/p')"
+key_bits="$(openssl rsa -in "$UPDATE_KEY_FILE" -text -noout 2>/dev/null | sed -nE '1s/.*\(([0-9]+) bit.*/\1/p')"
 if [[ "$key_bits" != "1024" ]]; then
   echo "Desktop update Packer requires RSA-1024 (128-byte signature); received RSA-${key_bits:-unknown}." >&2
   return 1
