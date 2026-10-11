@@ -83,6 +83,13 @@ async function snapshot(root: string): Promise<Record<string, string>> {
 }
 
 describe("poke desktop patch", () => {
+  it("uses Qt6 QByteArray JSON input and the full PopupMenu definition", async () => {
+    const source = await readFile(new URL("../features/poke/poke.cpp", import.meta.url), "utf8");
+    expect(source).toContain('#include "ui/widgets/popup_menu.h"');
+    expect(source).toContain("QJsonDocument::fromJson(data.vdata().v)");
+    expect(source).not.toContain("data.vdata().v.toUtf8()");
+  });
+
   it("installs the feature, wires both menus, and is idempotent", async () => {
     const root = await fixture();
     const options = { root, target: targetById("ayugram"), featureRoot: path.resolve("features/poke") };
