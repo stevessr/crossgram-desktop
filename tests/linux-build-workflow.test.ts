@@ -13,3 +13,30 @@ describe("Linux packer signing header visibility", () => {
     expect(build).toContain('crossgram-tdesktop-build');
   });
 });
+
+describe("Linux compiler cache", () => {
+  it("restores across builds and saves objects even after a failed compile", () => {
+    const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
+    expect(workflow).toContain("actions/cache/restore@v6");
+    expect(workflow).toContain("actions/cache/save@v6");
+    expect(workflow).toContain("if: always() && runner.os == 'Linux'");
+    expect(workflow).toContain('compiler_cache="$GITHUB_WORKSPACE/work/ccache"');
+    expect(workflow).toContain('-v "$compiler_cache:/usr/src/ccache"');
+    expect(workflow).toContain("-e CCACHE_DIR=/usr/src/ccache");
+    expect(workflow).toContain("-e CCACHE_MAXSIZE=2G");
+  });
+
+  it("only enables caching on Telegram and excludes the private signing Packer", () => {
+    const workflow = readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
+    const linux = workflow.slice(
+      workflow.indexOf("      - name: Build, smoke test, and package Linux brands"),
+      workflow.indexOf("      - name: Save Linux C++ compiler cache"),
+    );
+    expect(linux).toContain('anchor = "add_executable(Telegram WIN32 MACOSX_BUNDLE)"');
+    expect(linux).toContain("set_property(TARGET Telegram PROPERTY CXX_COMPILER_LAUNCHER ccache)");
+    expect(linux).toContain("set_property(TARGET Telegram PROPERTY C_COMPILER_LAUNCHER ccache)");
+    expect(linux).toContain("            enable_compiler_cache");
+    expect(linux).not.toContain("CMAKE_CXX_COMPILER_LAUNCHER=ccache");
+    expect(linux).not.toContain("set_property(TARGET Packer PROPERTY CXX_COMPILER_LAUNCHER ccache)");
+  });
+});
