@@ -29,4 +29,5 @@ jobs:
           node-version: 24
       - run: corepack enable
       - run: yarn install --immutable
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: yarn check
