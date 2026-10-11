@@ -710,7 +710,7 @@ jobs:
             mkdir -p "$payload_work"
             docker run --rm \
               -u "$(id -u)" \
-              -w /work \
+              -w "/work/artifacts/payload-work-$brand" \
               -v "$GITHUB_WORKSPACE:/work" \
               -v "$source:/usr/src/tdesktop" \
               crossgram-tdesktop-build \
