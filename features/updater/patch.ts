@@ -79,7 +79,8 @@ export function validateUpdateKeyPair(privatePem: string, publicPem: string): vo
     }
   } catch (error) {
     if (error instanceof PatchError) throw error;
-    throw new PatchError("Invalid desktop update RSA signing key pair (PEM).");
+    const reason = error instanceof Error ? error.message : "unknown crypto error";
+    throw new PatchError("Invalid desktop update RSA signing key pair (PEM): " + reason);
   }
 }
 
