@@ -919,12 +919,99 @@ jobs:
             '{ target: $target, repository: $repository, tag: $tag }' \
             > "$GITHUB_WORKSPACE/artifacts/crossgram-$TARGET-$BRAND_BATCH-macos-$VERSION.upstream.json"
 
-      - name: Upload artifact
+      # Upload independently by brand without rebuilding or duplicating binaries.
+      # The release job downloads all of these artifacts into one flat directory.
+      - name: Upload runtime build
+        if: always() && contains(matrix.build.brands, 'runtime')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-runtime--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-runtime-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-runtime-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-runtime-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload cross build
+        if: always() && contains(matrix.build.brands, 'cross')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-cross--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-cross-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-cross-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-cross-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload qq build
+        if: always() && contains(matrix.build.brands, 'qq')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-qq--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-qq-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-qq-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-qq-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload wechat build
+        if: always() && contains(matrix.build.brands, 'wechat')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-wechat--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-wechat-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-wechat-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-wechat-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload wecom build
+        if: always() && contains(matrix.build.brands, 'wecom')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-wecom--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-wecom-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-wecom-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-wecom-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload dingtalk build
+        if: always() && contains(matrix.build.brands, 'dingtalk')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-dingtalk--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-dingtalk-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-dingtalk-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-dingtalk-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload discord build
+        if: always() && contains(matrix.build.brands, 'discord')
+        uses: actions/upload-artifact@v7
+        with:
+          name: crossgram-${{ matrix.build.target }}-discord--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: |
+            artifacts/crossgram-${{ matrix.build.target }}-discord-${{ matrix.build.platform }}-*.zip
+            artifacts/crossgram-${{ matrix.build.target }}-discord-${{ matrix.build.platform }}-*.tar.xz
+            artifacts/crossgram-${{ matrix.build.target }}-discord-${{ matrix.build.platform }}-*.upd
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Metadata belongs to the build batch, not to any single brand.
+      - name: Upload batch upstream metadata
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: crossgram-${{ matrix.build.target }}-${{ matrix.build.batch }}--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
-          path: artifacts/crossgram-*
+          name: crossgram-${{ matrix.build.target }}-${{ matrix.build.batch }}-metadata--${{ matrix.build.platform }}--${{ matrix.build.safeTag }}
+          path: artifacts/crossgram-${{ matrix.build.target }}-${{ matrix.build.batch }}-${{ matrix.build.platform }}-${{ matrix.build.safeTag }}.upstream.json
           if-no-files-found: warn
           retention-days: 14
 
