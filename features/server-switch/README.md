@@ -4,7 +4,7 @@
 
 Integration points:
 
-- `Intro::Widget`: server button, popup, and editor box;
+- `Intro::Widget`: server button, in-app selector dialog, and editor box (without a native Qt popup window);
 - `Storage::Account`: per-account JSON path;
 - `Main::Account`: startup application and MTProto recreation on selection;
 - `MTP::DcOptions`: custom endpoints, custom RSA key, immutable server updates, and special-config state;

@@ -13,10 +13,6 @@ namespace MTP {
 class DcOptions;
 } // namespace MTP
 
-namespace Ui {
-class PopupMenu;
-} // namespace Ui
-
 namespace Window {
 class Controller;
 } // namespace Window
@@ -29,8 +25,7 @@ namespace Crossgram::ServerSwitch {
 	QString *error = nullptr,
 	QByteArray *identity = nullptr);
 
-void FillMenu(
-	not_null<Ui::PopupMenu*> menu,
+void OpenSelector(
 	not_null<Window::Controller*> controller,
 	not_null<Main::Account*> account);
 

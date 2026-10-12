@@ -148,7 +148,7 @@ These are unofficial themed builds and are not affiliated with or endorsed by Te
 
 ## User experience
 
-The sign-in screen contains a **Server** button. Its popup contains:
+The sign-in screen contains a **Server** button. Its in-app selector dialog contains:
 
 - **Official Telegram**, which removes the account's custom configuration;
 - the account's saved custom configuration, when present;

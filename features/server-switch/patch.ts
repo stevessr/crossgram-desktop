@@ -158,20 +158,12 @@ export async function patchServerSwitch(options: PatchOptions): Promise<void> {
   });
 
   await context.edit(`${sourceRoot}/intro/intro_widget.h`, (file) => {
-    file.insertAfter("class FlatLabel;", "\nclass PopupMenu;", "class PopupMenu;");
     file.insertAfter(
       "\tobject_ptr<Ui::FadeWrap<Ui::RoundButton>> _settings;",
       "\n\tobject_ptr<Ui::FadeWrap<Ui::RoundButton>> _server;",
       "_server;",
     );
-    const menuAnchor = file.has("_testModeLabel")
-      ? "\tobject_ptr<Ui::FadeWrap<Ui::FlatLabel>> _testModeLabel = { nullptr };"
-      : "\tobject_ptr<Ui::FadeWrap<Ui::RoundButton>> _server;";
-    file.insertAfter(
-      menuAnchor,
-      "\n\tbase::unique_qptr<Ui::PopupMenu> _serverMenu;",
-      "_serverMenu;",
-    );
+
   });
 
   await context.edit(`${sourceRoot}/intro/intro_widget.cpp`, (file) => {
@@ -179,11 +171,6 @@ export async function patchServerSwitch(options: PatchOptions): Promise<void> {
       "#include \"countries/countries_instance.h\"",
       "\n#include \"crossgram/server_switch.h\"",
       "#include \"crossgram/server_switch.h\"",
-    );
-    file.insertAfter(
-      "#include \"ui/widgets/labels.h\"",
-      "\n#include \"ui/widgets/popup_menu.h\"",
-      "#include \"ui/widgets/popup_menu.h\"",
     );
     file.replace(
       "\t\tst::defaultBoxButton))\n, _next(",
@@ -193,7 +180,7 @@ export async function patchServerSwitch(options: PatchOptions): Promise<void> {
     file.insertAfter(
       "\t_settings->entity()->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);",
       introSetup,
-      "Crossgram::ServerSwitch::FillMenu(",
+      "Crossgram::ServerSwitch::OpenSelector(",
     );
     file.insertAfter(
       "\t_settings->toggle(!stepHasCover, anim::type::normal);",

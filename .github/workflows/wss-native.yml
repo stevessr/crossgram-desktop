@@ -16,3 +16,15 @@ jobs:
         run: echo "::1 localhost.localdomain" | sudo tee -a /etc/hosts
       - name: Compile and run production WSS stream and configuration tests
         run: scripts/test-wss-native.sh "$RUNNER_TEMP/wss-native"
+      - name: Set up Node.js for SERVER selector tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install patcher test dependencies
+        run: |
+          corepack enable
+          yarn install --immutable
+      - name: Verify SERVER selector avoids native Qt popup
+        run: |
+          yarn typecheck
+          yarn vitest run tests/server-switch.test.ts
