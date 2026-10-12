@@ -8,7 +8,7 @@
 #include "storage/storage_account.h"
 #include "ui/layers/generic_box.h"
 #include "ui/widgets/fields/input_field.h"
-#include "ui/widgets/popup_menu.h"
+#include "ui/widgets/buttons.h"
 #include "window/window_controller.h"
 
 #include "styles/style_boxes.h"
@@ -159,12 +159,25 @@ bool ApplyStored(
 	return true;
 }
 
-void FillMenu(
-		not_null<Ui::PopupMenu*> menu,
+namespace {
+
+// Use the existing in-app layer, not a native Qt::Popup window. Creating a
+// separate popup is unsafe on some Wayland/EGL combinations.
+void ShowSelector(
+		not_null<Ui::GenericBox*> box,
 		not_null<Window::Controller*> controller,
 		not_null<Main::Account*> account) {
-	menu->addAction(u"Official Telegram"_q, [=] {
+	box->setWidth(st::boxWideWidth);
+	box->setTitle(u"Server"_q);
+	if (account->sessionExists()) {
+		box->addButton(rpl::single(u"Close"_q), [=] { box->closeBox(); });
+		return;
+	}
+	const auto official = box->addRow(
+		object_ptr<Ui::LinkButton>(box, u"Official Telegram"_q));
+	official->setClickedCallback([=] {
 		UseOfficial(controller, account);
+		box->closeBox();
 	});
 	const auto path = account->local().serverSwitchConfigPath();
 	if (QFile::exists(path)) {
@@ -173,16 +186,33 @@ void FillMenu(
 		const auto title = Load(path, &configuration, &error)
 			? configuration.name
 			: u"Invalid custom configuration"_q;
-		menu->addAction(title, [=] {
+		const auto custom = box->addRow(
+			object_ptr<Ui::LinkButton>(box, title));
+		custom->setClickedCallback([=] {
 			auto applyError = QString();
 			if (!account->reloadServerSwitchConfiguration(&applyError)) {
 				controller->showToast(applyError);
+			} else {
+				controller->showToast(u"Server configuration applied."_q);
 			}
+			box->closeBox();
 		});
 	}
-	menu->addAction(u"Add custom configuration..."_q, [=] {
+	const auto add = box->addRow(
+		object_ptr<Ui::LinkButton>(box, u"Add custom configuration..."_q));
+	add->setClickedCallback([=] {
+		box->closeBox();
 		controller->show(Box(ShowEditor, controller, account));
 	});
+	box->addButton(rpl::single(u"Cancel"_q), [=] { box->closeBox(); });
+}
+
+} // namespace
+
+void OpenSelector(
+		not_null<Window::Controller*> controller,
+		not_null<Main::Account*> account) {
+	controller->show(Box(ShowSelector, controller, account));
 }
 
 } // namespace Crossgram::ServerSwitch
