@@ -1,6 +1,12 @@
 name: Manual Linux desktop build
 
 on:
+  # Also build when this workflow is explicitly updated on main. This allows
+  # a one-off build request without changing the normal release schedule.
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/manual-build.yml
   workflow_dispatch:
     inputs:
       target:
@@ -35,7 +41,7 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       platforms: linux
-      target: ${{ inputs.target }}
-      brands: ${{ inputs.brands }}
+      target: ${{ inputs.target || 'tdesktop-x64' }}
+      brands: ${{ inputs.brands || 'runtime' }}
       build_only: true
     secrets: inherit
