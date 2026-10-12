@@ -198,6 +198,16 @@ describe("server switch patch", () => {
     expect(session).toContain("unmapped-or-cdn-dc");
     expect(session).toContain("serverSwitchBlocked()");
     expect(session).toContain("_options->proxy = ProxyData()");
+    const intro = await readFile(path.join(root, "Telegram/SourceFiles/intro/intro_widget.cpp"), "utf8");
+    const introHeader = await readFile(path.join(root, "Telegram/SourceFiles/intro/intro_widget.h"), "utf8");
+    const selector = await readFile(path.join(root, "Telegram/SourceFiles/crossgram/server_switch.cpp"), "utf8");
+    expect(intro).toContain("Crossgram::ServerSwitch::OpenSelector(");
+    expect(intro).not.toContain("Ui::PopupMenu");
+    expect(introHeader).not.toContain("_serverMenu");
+    expect(selector).toContain("controller->show(Box(ShowSelector, controller, account))");
+    expect(selector).toContain("object_ptr<Ui::LinkButton>");
+    expect(selector).not.toContain("std::make_unique<Ui::PopupMenu>");
+    expect(selector).not.toContain("menu->popup(");
     const account = await readFile(path.join(root, "Telegram/SourceFiles/main/main_account.cpp"), "utf8");
     expect(account).toContain("blockServerSwitchConfiguration()");
     expect(account).not.toContain("prepared->dcOptions().useBuiltInConfiguration()");
