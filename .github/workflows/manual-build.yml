@@ -14,7 +14,7 @@ on:
           - materialgram
           - all
       brands:
-        description: Build brand (runtime = universal package; all = all legacy brands)
+        description: Build brand (runtime = universal; all = six separately uploaded brands)
         type: choice
         default: runtime
         options:
